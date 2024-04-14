@@ -4,14 +4,18 @@ const BASE_URL = "https://api.openweathermap.org/data/2.5/";
 const CITY_BASE_URL =
   "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/geonames-all-cities-with-a-population-1000/records?";
 
-export const fetchCitiesData = async (page: number, searchedText: string) => {
+export const fetchCitiesData = async ({
+  pageParam,
+  searchedText,
+}: {
+  pageParam: number;
+  searchedText: string;
+}) => {
   const query =
     searchedText !== "" ? `where=search(name%2C%20%22${searchedText}%22)&` : "";
-  const url = CITY_BASE_URL + query + `limit=20&offset=${page}`;
-  console.log("Url: ", url);
+  const url = CITY_BASE_URL + query + `limit=20&offset=${pageParam}`;
   try {
     const response = await axios.get(url);
-    console.log("Response: ", response.data);
     return response.data;
   } catch (error) {
     console.log(error);

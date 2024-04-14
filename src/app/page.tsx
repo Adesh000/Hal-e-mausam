@@ -1,76 +1,173 @@
 "use client";
-import CityCard from "@/components/CityCard";
-import CustomButton from "@/components/CustomButton";
 import Navbar from "@/components/Navbar";
 import { fetchCitiesData } from "@/services/wetherServices";
-import {
-  QueryClient,
-  QueryClientProvider,
-  keepPreviousData,
-  useQuery,
-} from "@tanstack/react-query";
-import Image from "next/image";
+import { SearchOutlined } from "@ant-design/icons";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Input, Table, TableColumnsType } from "antd";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+
+interface DataType {
+  geoname_id: number;
+  ascii_name: string;
+  cou_name_en: string;
+  population: number;
+  timezon: string;
+}
+
+const columns: TableColumnsType<DataType> = [
+  {
+    title: "Geoname Id",
+    dataIndex: "geoname_id",
+    key: "geoname_id",
+  },
+  {
+    title: "City",
+    dataIndex: "ascii_name",
+    key: "ascii_name",
+    showSorterTooltip: { target: "full-header" },
+    filters: [
+      {
+        text: "London",
+        value: "London",
+      },
+      {
+        text: "New York",
+        value: "New York",
+      },
+    ],
+    filterSearch: true,
+    onFilter: (value, record) =>
+      record.ascii_name.indexOf(value as string) === 0,
+    render: (text) => <Link href={`/${text}`}>{text}</Link>,
+  },
+  {
+    title: "Country",
+    dataIndex: "cou_name_en",
+    key: "cou_name_en",
+    showSorterTooltip: { target: "full-header" },
+    filters: [
+      {
+        text: "India",
+        value: "India",
+      },
+      {
+        text: "U S",
+        value: "US",
+      },
+      {
+        text: "Afghanistan",
+        value: "Afghanistan",
+      },
+    ],
+    filterSearch: true,
+    onFilter: (value, record) =>
+      record.cou_name_en.indexOf(value as string) === 0,
+  },
+  {
+    title: "Population",
+    dataIndex: "population",
+    key: "population",
+    sorter: (a, b) => a.population - b.population,
+  },
+  {
+    title: "Timezone",
+    dataIndex: "timezone",
+    key: "timezone",
+  },
+];
 
 export default function Home() {
-  const [page, setPage] = useState<number>(0);
   const [searchedText, setSearchedText] = useState<string>("");
-  // const [city, setCity] = useState([]);
-  const { isError, data, error, isPending, isFetching, isPlaceholderData } =
-    useQuery({
-      queryKey: ["cities", page, searchedText],
-      queryFn: () => fetchCitiesData(page, searchedText),
-      placeholderData: keepPreviousData,
-    });
+  const tableRef: Parameters<typeof Table>[0]["ref"] = useRef(null);
+  const [tableData, setTableData] = useState<DataType[]>([]);
+  const [searchedData, setSearchedData] = useState<DataType[]>([]);
+
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    status,
+    isPending,
+    isError,
+  } = useInfiniteQuery({
+    queryKey: ["cities", searchedText],
+    queryFn: ({ pageParam }) => fetchCitiesData({ pageParam, searchedText }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages, lastPageParam) => {
+      if (lastPage.length === 0) {
+        return undefined;
+      }
+      return lastPageParam + 1;
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      if (searchedText === "") {
+        setTableData((prevData) => [
+          ...prevData,
+          ...data?.pages.flatMap((page) => page.results),
+        ]);
+      } else {
+        setTableData([...data?.pages.flatMap((page) => page.results)]);
+      }
+    }
+  }, [data]);
+
+  // console.log("Table Data: ", tableData);
+
+  const handleScroll = (e: any) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.target;
+    if (
+      scrollHeight - scrollTop === clientHeight &&
+      hasNextPage &&
+      !isFetching
+    ) {
+      fetchNextPage();
+    }
+  };
 
   return (
     <main>
       <Navbar />
-      <section className="px-20 ">
-        <div className="w-full mt-5 p-1 border border-slate-500 rounded-lg">
-          <input
+      <section className="px-20 py-1 bg-slate-100">
+        <div className="my-10 bg-white shadow-md p-5 rounded-lg">
+          <Input
+            type="text"
+            className="mb-3"
+            suffix={<SearchOutlined />}
+            placeholder="Search City..."
             value={searchedText}
             onChange={(e) => {
               setSearchedText(e.target.value);
             }}
-            type="search"
-            placeholder="Search city..."
-            className="appearance-none w-full py-3 focus:outline-none"
           />
-        </div>
-        <div>
           {isPending ? (
             <div>Loading...</div>
           ) : isError ? (
             <div>Error: {error.message}</div>
           ) : (
-            <div>
-              {data?.results.map((city: any) => (
-                <CityCard city={city} />
-              ))}
-            </div>
+            <>
+              <Table
+                dataSource={tableData}
+                columns={columns}
+                pagination={false}
+                bordered
+                virtual
+                scroll={{ x: 500, y: 500 }}
+                ref={tableRef}
+                onScroll={handleScroll}
+                sticky={{ offsetHeader: 50 }}
+              />
+              <div>
+                {isFetching && !isFetchingNextPage ? "Fetching..." : null}
+              </div>
+            </>
           )}
-          <div className="flex items-center justify-center my-5">
-            <CustomButton
-              title={"Previous Page"}
-              disabled={page === 0}
-              onClick={() => setPage((old) => Math.max(old - 1, 0))}
-            />
-            <span className="px-3 py-1 bg-orange-400 rounded-md text-white mx-5">
-              {page + 1}
-            </span>
-            <CustomButton
-              title={"Next Page"}
-              disabled={isPlaceholderData}
-              onClick={() => {
-                if (!isPlaceholderData) {
-                  setPage((old) => old + 1);
-                }
-              }}
-            />
-          </div>
-          {isFetching ? <span> Loading...</span> : null}{" "}
         </div>
       </section>
     </main>
