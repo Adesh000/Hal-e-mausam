@@ -28,18 +28,30 @@ const columns: TableColumnsType<DataType> = [
     showSorterTooltip: { target: "full-header" },
     filters: [
       {
-        text: "London",
-        value: "London",
+        text: "Mumbai",
+        value: "Mumbai",
       },
       {
-        text: "New York",
-        value: "New York",
+        text: "Delhi",
+        value: "Delhi",
+      },
+      {
+        text: "Bangalore",
+        value: "Bangalore",
+      },
+      {
+        text: "Kolkata",
+        value: "Kolkata",
       },
     ],
     filterSearch: true,
     onFilter: (value, record) =>
       record.ascii_name.indexOf(value as string) === 0,
-    render: (text) => <Link href={`/${text}`}>{text}</Link>,
+    render: (text) => (
+      <Link href={`/${text}`} className="text-blue-700">
+        {text}
+      </Link>
+    ),
   },
   {
     title: "Country",
@@ -104,6 +116,11 @@ export default function Home() {
       return lastPageParam + 1;
     },
   });
+
+  console.log(
+    "Data: ",
+    data?.pages.flatMap((page) => page.results)
+  );
 
   useEffect(() => {
     if (data) {
